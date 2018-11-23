@@ -76,8 +76,7 @@ def main():
     )
     parser.add_argument(
         'data_file',
-        help="Data file describing the parametric model, please see "\
-             "'examples/data-files/barbero-viscoelastic.yaml' for an example"
+        help="Data file where results are saved"
     )
     
     parser.add_argument(
