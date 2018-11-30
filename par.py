@@ -7,7 +7,7 @@ import logging
 import os
 
 from scipy.integrate import odeint
-
+from multiprocessing import Pool
 
 # The gravitational acceleration (m.s-2).
 g = 9.81
@@ -29,7 +29,8 @@ def deriv(y, t, L1, L2, m1, m2):
              m2*L2*z2**2*s*c) / L2 / (m1 + m2*s**2)
     return theta1dot, z1dot, theta2dot, z2dot
 
-def solve(L1, L2, m1, m2, tmax, dt, y0):
+def solve(a):   #L1, L2, m1, m2, tmax, dt, y0
+    L1, L2, m1, m2, tmax, dt, y0 = a
     t = np.arange(0, tmax+dt, dt)
 
     # Do the numerical integration of the equations of motion
@@ -42,7 +43,19 @@ def solve(L1, L2, m1, m2, tmax, dt, y0):
     x2 = x1 + L2 * np.sin(theta2)
     y2 = y1 - L2 * np.cos(theta2)
 
-    return theta1, theta2, x1, y1, x2, y2
+    return y0, theta1, theta2, x1, y1, x2, y2
+
+def make_parameters(L1, L2, m1, m2, tmax, dt, theta_resolution):
+    for theta1_init in np.linspace(0, 2*np.pi, theta_resolution):
+            for theta2_init in np.linspace(0, 2*np.pi, theta_resolution):
+                # Initial conditions: theta1, dtheta1/dt, theta2, dtheta2/dt.
+                y0 = np.array([
+                    theta1_init,
+                    0.0,
+                    theta2_init,
+                    0.0
+                ])
+                yield L1, L2, m1, m2, tmax, dt, y0
 
 def simulate_pendulum(theta_resolution, datafile, tmax, dt):
     # Pendulum rod lengths (m), bob masses (kg).
@@ -55,19 +68,12 @@ def simulate_pendulum(theta_resolution, datafile, tmax, dt):
     with open(datafile, 'w') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['theta1_init', 'theta2_init', 'theta1', 'theta2', 'x1', 'y1', 'x2', 'y2'])
-
-        for theta1_init in np.linspace(0, 2*np.pi, theta_resolution):
-            for theta2_init in np.linspace(0, 2*np.pi, theta_resolution):
-                # Initial conditions: theta1, dtheta1/dt, theta2, dtheta2/dt.
-                y0 = np.array([
-                    theta1_init,
-                    0.0,
-                    theta2_init,
-                    0.0
-                ])
-
-                theta1, theta2, x1, y1, x2, y2 = solve(L1, L2, m1, m2, tmax, dt, y0)
-                writer.writerow([theta1_init, theta2_init, theta1[-1], theta2[-1], x1[-1], y1[-1], x2[-1], y2[-1]])
+        #theta1, theta2, x1, y1, x2, y2 = solve(L1, L2, m1, m2, tmax, dt, y0)
+        p = Pool()
+        rows = p.imap(solve, make_parameters(L1, L2, m1, m2, tmax, dt, theta_resolution))
+        for row in rows:
+            y0, theta1, theta2, x1, y1, x2, y2 = row
+            writer.writerow([y0[0], y0[2], theta1[-1], theta2[-1], x1[-1], y1[-1], x2[-1], y2[-1]])
 
 def main():
     parser = argparse.ArgumentParser()
@@ -100,8 +106,6 @@ def main():
     )
     args = parser.parse_args()
     
-    print 'Printam '
-    print args.resolution
    
     simulate_pendulum(args.resolution, args.data_file, args.tmax, args.dt)
 

@@ -100,8 +100,8 @@ def main():
     )
     args = parser.parse_args()
     
-    print 'Printam '
-    print args.resolution
+    #print 'Printam '
+    #print args.resolution
    
     simulate_pendulum(args.resolution, args.data_file, args.tmax, args.dt)
 
